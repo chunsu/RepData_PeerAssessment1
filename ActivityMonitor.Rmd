@@ -1,0 +1,104 @@
+---
+title: "ActivityMonitor"
+author: "Chunsu"
+date: "5/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Reproducible Research: Course Project 1
+
+```{r include=FALSE}
+library(dplyr)
+library(lubridate, warn.conflicts = FALSE)
+library(ggplot2, warn.conflicts = FALSE)
+library(magrittr, warn.conflicts = FALSE)
+```
+
+
+1. Read data
+```{r}
+    data <- read.csv("activity.csv", header = TRUE)
+    data$date <- as.Date(data$date)
+```
+
+2. Histogram of the total number of steps taken each day
+```{r}
+    data %>% 
+    group_by(date) %>%
+    na.exclude %>%
+    summarize(sum = sum(steps)) %>%
+  	with(hist(sum, xlab="total number of steps", main="Histogram of daily total number of steps"))
+```
+
+3. Mean and median number of steps taken each day
+```{r}
+  	data %>% 
+    group_by(date) %>%
+    na.exclude %>%
+    summarize(Mean = mean(steps)) -> avg_data
+```
+
+
+```{r}    
+    data %>% 
+    group_by(date) %>%
+    na.exclude %>%
+    summarize(median = median(steps)) 
+```
+
+4. Time series plot of the average number of steps taken
+```{r}
+p <- ggplot(avg_data, aes(x=date, y=Mean)) +
+  geom_line() + 
+  xlab("")
+p
+```
+
+5. The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+  	data %>% 
+    group_by(interval) %>%
+    na.exclude %>%
+    summarize(mean_step = mean(steps)) %$%
+    interval[which.max(mean_step)]
+```
+
+6. Code to describe and show a strategy for imputing missing data
+```{r}
+library(naniar)
+```
+
+```{r}
+vis_miss(data)
+```
+
+```{r}
+       ggplot(data,
+       aes(x = interval, y = steps)) +
+       geom_miss_point() + 
+       facet_wrap(~date)
+```
+It seems that the missing data occurs on certain days, and there is a daily pattern throught out intervals (two peaks). So we imputate the missing data by calculating the interval avarage throught out the recording periods.
+```{r}
+  	data %>% 
+    group_by(interval) %>%
+    na.exclude %>%
+    summarize(mean_step = mean(steps)) -> imp_data 
+```
+
+7. Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r}
+      data %>% 
+      group_by(date) %>%
+      summarize(Mean = mean(steps)) -> avg_data
+```
+
+```{r}
+which(is.na(avg_data$Mean), arr.ind=TRUE)
+avg_data$date[which(is.na(avg_data$Mean), arr.ind=TRUE)]
+```
