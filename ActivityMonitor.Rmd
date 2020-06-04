@@ -75,7 +75,7 @@ library(naniar)
 ```{r}
 vis_miss(data)
 ```
-
+First, we want to plot missing values
 ```{r}
        ggplot(data,
        aes(x = interval, y = steps)) +
@@ -87,18 +87,36 @@ It seems that the missing data occurs on certain days, and there is a daily patt
   	data %>% 
     group_by(interval) %>%
     na.exclude %>%
-    summarize(mean_step = mean(steps)) -> imp_data 
+    summarise(mean_step = mean(steps)) -> imp_data 
 ```
 
+```{r}
+    data %>% 
+    group_by(date) %>%
+    summarize(Mean = mean(steps)) -> avg_data
+    na_date <- avg_data$date[which(is.na(avg_data$Mean), arr.ind=TRUE)]
+    for (i in 1: length(na_date)) {
+      data$steps[data$date == na_date[i]] <- imp_data$mean_step
+    }
+    
+```
 7. Histogram of the total number of steps taken each day after missing values are imputed
 
 ```{r}
       data %>% 
       group_by(date) %>%
       summarize(Mean = mean(steps)) -> avg_data
+      hist(avg_data$Mean)
 ```
 
+8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
 ```{r}
-which(is.na(avg_data$Mean), arr.ind=TRUE)
-avg_data$date[which(is.na(avg_data$Mean), arr.ind=TRUE)]
-```
+      weekdays1 <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+      df <- mutate(data, weekday = weekdays(data$date))
+      df$wDay <- factor((df$weekday %in% weekdays1), levels=c(FALSE, TRUE), labels=c('weekend', 'weekday') )
+      ggplot(df, aes(x=interval, y=steps)) + 
+        geom_point(alpha = 0.05) + 
+        facet_grid(. ~ wDay) + 
+        stat_summary(aes(y = steps,group=1,colour="red"), fun=mean, geom="line",group=1) +
+        scale_color_discrete(labels = 'average') +
+        theme(legend.title = element_blank())
