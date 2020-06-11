@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
 ```
 
 # Reproducible Research: Course Project 1
@@ -26,62 +26,81 @@ library(magrittr, warn.conflicts = FALSE)
 ```
 
 2. Histogram of the total number of steps taken each day
-```{r}
+
+```{r, out.width = "55%", echo = TRUE}
+##Calculate the total number of steps taken per day
     data %>% 
     group_by(date) %>%
     na.exclude %>%
-    summarize(sum = sum(steps)) %>%
-  	with(hist(sum, xlab="total number of steps", main="Histogram of daily total number of steps"))
+    summarize(sum = sum(steps)) -> total_step
+##Plot the histogram of the total number of steps taken each day
+  	total_step %>% ggplot(aes(sum)) + 
+    geom_histogram(fill = "steelblue", bins = 20, colour = "navy", alpha = 0.9) + 
+    labs(title = "Histogram of Daily Total Number of Steps", 
+       x = "Number of steps", 
+       y = "Frequency") +
+    theme_minimal()
 ```
 
-3. Mean and median number of steps taken each day
-```{r}
-  	data %>% 
-    group_by(date) %>%
-    na.exclude %>%
-    summarize(Mean = mean(steps)) -> avg_data
+3. Mean and median number of steps taken each day. Note how close the two values are.
+
+```{r, out.width = "65%", echo = TRUE}
+
+    central_values <- data.frame(measurement = c("mean", "median"), value = c(mean(total_step$sum), median(total_step$sum)))
+    total_step %>% ggplot(aes(sum)) + 
+    geom_histogram(fill = "steelblue", bins = 20, colour = "navy", alpha = 0.9) + 
+    geom_vline(data = central_values, aes(xintercept = value, color = measurement), alpha =0.5) +
+    scale_color_manual(values = c("red", "yellow"), name = NULL) +
+    labs(title = "Histogram of Daily Total Number of Steps", 
+       x = "Number of steps", 
+       y = "Frequency") +
+    theme_minimal()
+    print(paste0("the mean number of steps is ", round(mean(total_step$sum),2)))
+    print(paste0("the median number of steps is ", median(total_step$sum)))
 ```
 
-
-```{r}    
-    data %>% 
-    group_by(date) %>%
-    na.exclude %>%
-    summarize(median = median(steps)) 
-```
 
 4. Time series plot of the average number of steps taken
-```{r}
-p <- ggplot(avg_data, aes(x=date, y=Mean)) +
-  geom_line() + 
-  xlab("")
-p
+```{r, out.width = "65%", echo = TRUE}
+    data %>% 
+    group_by(interval) %>%
+    na.exclude %>%
+    summarise(mean_step = mean(steps)) -> imp_data 
+    p <- ggplot(imp_data, aes(x=interval, y=mean_step)) +
+    geom_line() + 
+    xlab("")
+    p
 ```
 
 5. The 5-minute interval that, on average, contains the maximum number of steps
-```{r}
-  	data %>% 
-    group_by(interval) %>%
-    na.exclude %>%
-    summarize(mean_step = mean(steps)) %$%
-    interval[which.max(mean_step)]
+```{r, out.width = "65%", echo = TRUE}
+  	p <- ggplot(imp_data, aes(x=interval, y=mean_step)) +
+    geom_line() + 
+    xlab("") +
+    geom_vline(aes(xintercept = interval[which.max(mean_step)], color = "red")) +
+    scale_color_manual(values = "red", name = NULL, labels = "max number of steps")
+    p
+    
 ```
 
 6. Code to describe and show a strategy for imputing missing data
 ```{r}
-library(naniar)
+    library(naniar)
 ```
 
-```{r}
-vis_miss(data)
+
+First, we want to plot missing values column wise
+```{r, out.width = "65%"}
+    vis_miss(data)
 ```
-First, we want to plot missing values
-```{r}
+
+```{r, out.width = "85%", echo = TRUE}
        ggplot(data,
        aes(x = interval, y = steps)) +
        geom_miss_point() + 
        facet_wrap(~date)
 ```
+
 It seems that the missing data occurs on certain days, and there is a daily pattern throught out intervals (two peaks). So we imputate the missing data by calculating the interval avarage throught out the recording periods.
 ```{r}
   	data %>% 
@@ -91,26 +110,44 @@ It seems that the missing data occurs on certain days, and there is a daily patt
 ```
 
 ```{r}
+##Collasping data across intervals within same date
     data %>% 
     group_by(date) %>%
     summarize(Mean = mean(steps)) -> avg_data
+##Extracting a list of dates with NA
     na_date <- avg_data$date[which(is.na(avg_data$Mean), arr.ind=TRUE)]
+##Creating new dataset with imputted values for NA
+    new_data <- data
     for (i in 1: length(na_date)) {
-      data$steps[data$date == na_date[i]] <- imp_data$mean_step
+      new_data$steps[new_data$date == na_date[i]] <- imp_data$mean_step
     }
     
 ```
+
 7. Histogram of the total number of steps taken each day after missing values are imputed
 
-```{r}
-      data %>% 
-      group_by(date) %>%
-      summarize(Mean = mean(steps)) -> avg_data
-      hist(avg_data$Mean)
+```{r, out.width = "65%", echo = TRUE}
+
+    new_data %>% 
+    group_by(date) %>%
+    na.exclude %>%
+    summarize(sum = sum(steps)) -> total_step_new
+      
+    central_values <- data.frame(measurement = c("mean", "median"), value = c(mean(total_step_new$sum), median(total_step_new$sum)))
+    total_step_new %>% ggplot(aes(sum)) + 
+    geom_histogram(fill = "steelblue", bins = 20, colour = "navy", alpha = 0.9) + 
+    geom_vline(data = central_values, aes(xintercept = value, color = measurement), alpha =0.5) +
+    scale_color_manual(values = c("red", "yellow"), name = NULL) +
+    labs(title = "Histogram of Daily Total Number of Steps", 
+       x = "Number of steps", 
+       y = "Frequency") +
+    theme_minimal()
+    print(paste0("the mean number of steps is ", round(mean(total_step_new$sum),2)))
+    print(paste0("the median number of steps is ", round(median(total_step_new$sum),2)))
 ```
 
 8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
-```{r}
+```{r,out.width = "65%",echo = TRUE, message=FALSE}
       weekdays1 <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
       df <- mutate(data, weekday = weekdays(data$date))
       df$wDay <- factor((df$weekday %in% weekdays1), levels=c(FALSE, TRUE), labels=c('weekend', 'weekday') )
@@ -120,3 +157,5 @@ It seems that the missing data occurs on certain days, and there is a daily patt
         stat_summary(aes(y = steps,group=1,colour="red"), fun=mean, geom="line",group=1) +
         scale_color_discrete(labels = 'average') +
         theme(legend.title = element_blank())
+```
+
